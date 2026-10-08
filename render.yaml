@@ -1,0 +1,20 @@
+# Optional Render blueprint. You can instead enter the same values in the Render dashboard.
+services:
+  - type: web
+    name: hostelhub-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TZ
+        value: Asia/Kolkata
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false
