@@ -12,6 +12,7 @@ import hostelRoutes from './routes/hostels.js';
 import studentSelf from './routes/student.js';
 import adminRoutes from './routes/admin.js';
 import gateRoutes from './routes/gate.js';
+import { Room, Bed } from './models/index.js';
 
 const app = express();
 app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1); // number of proxies in front of the app (Render = 1)
@@ -47,9 +48,13 @@ app.use('/api', (req, res) => res.status(404).json({ message: 'Not found' }));
 
 app.use((err, req, res, next) => {
   if (err.code === 11000) {
-    const field = Object.keys(err.keyPattern || {})[0];
-    const names = { email: 'email', rollNumber: 'roll number', number: 'room number', label: 'bed' };
-    return res.status(409).json({ message: `A record with this ${names[field] || field} already exists` });
+    const keys = Object.keys(err.keyPattern || {});
+    const has = (...k) => k.every((x) => keys.includes(x));
+    const msg = has('block', 'number') ? 'A room with this number already exists in this block'
+      : has('room', 'label') ? 'That bed already exists in this room'
+      : keys.length === 1 && (keys[0] === 'number' || keys[0] === 'label') ? 'The database still has the old campus-wide room rule. Ask the administrator to run: npm run migrate-indexes -- --apply'
+      : `A record with this ${{ email: 'email', rollNumber: 'roll number' }[keys[0]] || keys[0] || 'value'} already exists`;
+    return res.status(409).json({ message: msg });
   }
   if (err.type === 'entity.parse.failed') return res.status(400).json({ message: 'Invalid request body' });
   if (err.type === 'entity.too.large') return res.status(413).json({ message: 'Request is too large' });
@@ -64,9 +69,15 @@ mongoose.connection.on('error', (e) => console.error('MongoDB error:', e.message
 mongoose.connection.on('disconnected', () => console.warn('MongoDB disconnected (the driver will retry)'));
 mongoose.connection.on('reconnected', () => console.log('MongoDB reconnected'));
 
+// Old databases have unique indexes on room number and bed label across the whole campus. They must be replaced once.
+const oldOne = (list, field) => list.some((i) => i.unique && Object.keys(i.key).length === 1 && i.key[field] === 1);
+const warnOldIndexes = () => Promise.all([Room.collection.indexes(), Bed.collection.indexes()])
+  .then(([r, b]) => { if (oldOne(r, 'number') || oldOne(b, 'label')) console.warn('Old campus-wide unique indexes found on rooms/beds. Run once: npm run migrate-indexes -- --apply'); })
+  .catch(() => {}); // collections do not exist yet on a fresh database
+
 let server;
 connectDb()
-  .then(() => { server = app.listen(PORT, () => console.log(`HostelHub API listening on port ${PORT} (${isProd ? 'production' : 'development'})`)); })
+  .then(() => { server = app.listen(PORT, () => console.log(`HostelHub API listening on port ${PORT} (${isProd ? 'production' : 'development'})`)); warnOldIndexes(); })
   .catch((e) => { console.error('MongoDB connection failed:', e.message); process.exit(1); });
 
 const shutdown = () => {

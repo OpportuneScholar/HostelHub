@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../../api';
-import { Field, Load, Msg, useLoad, useMsg } from '../../ui';
+import { Field, Load, Msg, fmtDate, useLoad, useMsg } from '../../ui';
 
 export default function Profile() {
   const st = useLoad('/student/profile'); const [msg, run] = useMsg(); const [edit, setEdit] = useState(null);
@@ -12,7 +12,7 @@ export default function Profile() {
       <h1>Profile</h1><Msg m={msg} />
       <Load st={st} what="your profile">{p && <>
         <div className="card"><h2 style={{ marginTop: 0 }}>Personal</h2><dl className="kv">{row('Name', `${p.firstName} ${p.lastName}`)}{row('Roll number', p.rollNumber)}{row('Email', p.email)}{row('Phone', p.phone)}{row('Address', p.address)}</dl>
-          <h2>Academic</h2><dl className="kv">{row('Course', p.course)}{row('Branch', p.branch)}{row('Year', p.year)}{row('Semester', p.semester)}</dl>
+          <h2>Academic</h2><dl className="kv">{row('Course', p.course)}{row('Branch', p.branch)}{row('Year', p.year)}{row('Semester', p.semester)}{row('Joining date', fmtDate(p.joiningDate))}</dl>
           <h2>Hostel (set by warden)</h2><dl className="kv">{row('Room', bed?.room.number)}{row('Bed', bed?.label)}</dl>
           <h2>Guardian</h2><dl className="kv">{row('Name', p.guardianName)}{row('Phone', p.guardianPhone)}{row('Emergency contact', p.emergencyContact)}</dl>
           {!edit && <button className="btn" onClick={() => setEdit({ phone: p.phone, address: p.address, emergencyContact: p.emergencyContact })}>Edit contact details</button>}</div>

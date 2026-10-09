@@ -1,19 +1,30 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { User, StudentProfile, Bed } from '../models/index.js';
+import { User, StudentProfile, Bed, Room, Block } from '../models/index.js';
 import { auth, audit } from '../middleware/auth.js';
-import { HttpError, wrap, tempPassword, escapeRegex } from '../utils.js';
+import { HttpError, wrap, tempPassword, escapeRegex, parseJoiningDate, todayUtc } from '../utils.js';
 
 const router = Router();
 router.use(auth(['WARDEN']));
 
-const REQUIRED = ['firstName', 'lastName', 'rollNumber', 'email', 'phone', 'course', 'branch', 'year', 'semester',
-  'roomNumber', 'bedNumber', 'guardianName', 'guardianPhone', 'emergencyContact', 'address'];
+const PROFILE_FIELDS = ['firstName', 'lastName', 'rollNumber', 'email', 'enrollmentNumber', 'phone', 'course', 'branch', 'year', 'semester',
+  'guardianName', 'guardianPhone', 'emergencyContact', 'address'];
+const REQUIRED = [...PROFILE_FIELDS.filter((k) => k !== 'enrollmentNumber'), 'bedId'];
 
-const findBed = async (roomNumber, bedNumber) => {
-  const bed = await Bed.findOne({ label: `${String(roomNumber).trim()}-${String(bedNumber).trim()}`.toUpperCase() }).populate('room');
-  if (!bed) throw new HttpError(404, 'That room or bed does not exist');
-  return bed;
+// Finds the chosen bed and checks the whole chain the form selected (hostel > block > floor > room > bed).
+// The browser's dropdown filtering is only a convenience; this is the check that counts.
+const loadFreeBed = async ({ hostelId, blockId, floor, roomId, bedId } = {}) => {
+  if (!bedId) throw new HttpError(400, 'Select a hostel, block, floor, room and bed');
+  const bed = await Bed.findById(bedId);
+  const room = bed && await Room.findById(bed.room);
+  const block = room && await Block.findById(room.block);
+  if (!block) throw new HttpError(404, 'The selected bed does not exist');
+  const mismatch = (roomId && String(bed.room) !== String(roomId)) || (blockId && String(room.block) !== String(blockId))
+    || (hostelId && String(block.hostel) !== String(hostelId)) || (floor !== undefined && floor !== '' && Number(floor) !== room.floor);
+  if (mismatch) throw new HttpError(400, 'The selected bed does not belong to the selected hostel, block, floor and room');
+  if (bed.student) throw new HttpError(409, 'That bed is already occupied');
+  if (bed.maintenance) throw new HttpError(409, 'That bed is under maintenance');
+  return { bed, room };
 };
 // Atomic: only succeeds if nobody else holds the bed, so two students can never share one.
 const claimBed = async (bedId, userId) => {
@@ -24,9 +35,10 @@ const claimBed = async (bedId, userId) => {
 router.post('/', wrap(async (req, res) => {
   const b = req.body || {};
   const missing = REQUIRED.filter((k) => b[k] === undefined || String(b[k]).trim() === '');
-  if (missing.length) throw new HttpError(400, `Missing fields: ${missing.join(', ')}`);
-  const bed = await findBed(b.roomNumber, b.bedNumber);
-  const passwordHash = await bcrypt.hash(tempPassword(b.firstName, bed.room.number), 12);
+  if (missing.length) throw new HttpError(400, `Missing fields: ${missing.map((k) => (k === 'bedId' ? 'hostel, block, floor, room and bed' : k)).join(', ')}`);
+  const joiningDate = parseJoiningDate(b.joiningDate) ?? todayUtc();
+  const { bed, room } = await loadFreeBed(b);
+  const passwordHash = await bcrypt.hash(tempPassword(b.firstName, room.number), 12);
   const user = await User.create({
     name: `${b.firstName} ${b.lastName}`.trim(), email: b.email, rollNumber: b.rollNumber,
     passwordHash, role: 'STUDENT', mustChangePassword: true,
@@ -34,14 +46,14 @@ router.post('/', wrap(async (req, res) => {
   let profile;
   try {
     await claimBed(bed._id, user._id);
-    const { roomNumber, bedNumber, ...fields } = b;
-    profile = await StudentProfile.create({ ...fields, user: user._id });
+    const fields = Object.fromEntries(PROFILE_FIELDS.filter((k) => b[k] !== undefined).map((k) => [k, b[k]]));
+    profile = await StudentProfile.create({ ...fields, joiningDate, user: user._id });
   } catch (err) { // undo partial work
     await Bed.updateOne({ _id: bed._id, student: user._id }, { student: null });
     await User.deleteOne({ _id: user._id });
     throw err;
   }
-  audit(req.user._id, 'STUDENT_REGISTERED', user._id, { bed: bed.label });
+  audit(req.user._id, 'STUDENT_REGISTERED', user._id, { bed: bed.label, room: room.number });
   res.status(201).json({ message: 'Student registered successfully', student: profile });
 }));
 
@@ -96,13 +108,11 @@ router.post('/:id/reset-password', wrap(async (req, res) => {
 }));
 
 router.post('/:id/change-room', wrap(async (req, res) => {
-  const { roomNumber, bedNumber } = req.body || {};
-  if (!roomNumber || !bedNumber) throw new HttpError(400, 'Room number and bed number are required');
-  const newBed = await findBed(roomNumber, bedNumber);
-  const oldBed = await Bed.findOne({ student: req.params.id });
-  if (oldBed && oldBed._id.equals(newBed._id)) throw new HttpError(400, 'Student is already in that bed');
   if (!(await User.exists({ _id: req.params.id, role: 'STUDENT' }))) throw new HttpError(404, 'Student not found');
-  if (oldBed) await Bed.updateOne({ _id: oldBed._id }, { student: null });
+  const oldBed = await Bed.findOne({ student: req.params.id });
+  if (oldBed && String(oldBed._id) === String(req.body?.bedId)) throw new HttpError(400, 'Student is already in that bed');
+  const { bed: newBed } = await loadFreeBed(req.body);
+  if (oldBed) await Bed.updateOne({ _id: oldBed._id }, { student: null }); // one student, one bed: free the old one first
   try { await claimBed(newBed._id, req.params.id); }
   catch (err) { if (oldBed) await Bed.updateOne({ _id: oldBed._id, student: null }, { student: req.params.id }); throw err; }
   audit(req.user._id, 'ROOM_CHANGED', req.params.id, { from: oldBed?.label, to: newBed.label });

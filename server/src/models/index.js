@@ -33,16 +33,17 @@ export const Block = model('Block', new Schema({
 }).index({ hostel: 1, name: 1 }, { unique: true }));
 export const Room = model('Room', new Schema({
   block: ref('Block', { required: true }), floor: { type: Number, default: 0 },
-  number: str({ required: true, unique: true, uppercase: true }),
+  number: str({ required: true, uppercase: true }),
   capacity: { type: Number, required: true, min: 1, max: 10 },
-}));
+}).index({ block: 1, number: 1 }, { unique: true })); // a room number only has to be unique inside its block
 
 // student is null when free. The partial unique index means one student can hold only one bed.
 export const Bed = model('Bed', new Schema({
   room: ref('Room', { required: true, index: true }),
-  label: str({ required: true, unique: true, uppercase: true }),
+  label: str({ required: true, uppercase: true }),
   student: ref('User', { default: null }), maintenance: { type: Boolean, default: false },
-}).index({ student: 1 }, { unique: true, partialFilterExpression: { student: { $type: 'objectId' } } }));
+}).index({ student: 1 }, { unique: true, partialFilterExpression: { student: { $type: 'objectId' } } })
+  .index({ room: 1, label: 1 }, { unique: true })); // bed labels repeat across blocks (101-1), so they are unique per room
 
 export const AuditLog = model('AuditLog', new Schema({
   actor: ref('User', { required: true }), action: str({ required: true, index: true }),
