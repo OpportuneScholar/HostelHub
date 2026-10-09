@@ -90,7 +90,7 @@ router.post('/:id/reset-password', wrap(async (req, res) => {
   ]);
   if (!profile) throw new HttpError(404, 'Student not found');
   if (!bed) throw new HttpError(400, 'Assign a room before resetting the password');
-  await User.updateOne({ _id: req.params.id }, { passwordHash: await bcrypt.hash(tempPassword(profile.firstName, bed.room.number), 12), mustChangePassword: true });
+  await User.updateOne({ _id: req.params.id }, { passwordHash: await bcrypt.hash(tempPassword(profile.firstName, bed.room.number), 12), mustChangePassword: true, passwordChangedAt: new Date() });
   audit(req.user._id, 'PASSWORD_RESET', profile.user);
   res.json({ message: 'Password reset. The student must change it at next login.' });
 }));

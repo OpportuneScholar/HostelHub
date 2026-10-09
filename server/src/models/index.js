@@ -11,6 +11,7 @@ export const User = model('User', new Schema({
   role: { type: String, enum: ['WARDEN', 'STUDENT', 'GUARD'], required: true },
   mustChangePassword: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
+  passwordChangedAt: Date, // sessions issued before this are rejected (set on password resets)
 }, { timestamps: true }));
 
 export const StudentProfile = model('StudentProfile', new Schema({
@@ -94,3 +95,12 @@ export const Notice = model('Notice', new Schema({
   publishAt: { type: Date, default: Date.now }, expiresAt: { type: Date, required: true },
   createdBy: ref('User'),
 }));
+
+// One active reset code per user. Only a keyed hash of the code is stored. MongoDB removes expired rows itself.
+export const PasswordReset = model('PasswordReset', new Schema({
+  user: ref('User', { required: true, unique: true }),
+  otpHash: { type: String, required: true },
+  attempts: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now },
+  expiresAt: { type: Date, required: true },
+}).index({ expiresAt: 1 }, { expireAfterSeconds: 0 }));

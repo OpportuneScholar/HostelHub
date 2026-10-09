@@ -34,7 +34,7 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box
 .badge.approved,.badge.paid,.badge.resolved,.badge.active,.badge.in{background:#dcfce7;color:var(--ok)}
 .badge.pending,.badge.open,.badge.in-progress,.badge.out{background:#fef3c7;color:var(--warn)}
 .badge.rejected,.badge.overdue,.badge.cancelled,.badge.expired,.badge.high{background:#fee2e2;color:var(--bad)}
-.alert{padding:10px 14px;border-radius:10px;margin-bottom:12px;border:1px solid}.alert.err{background:#fef2f2;border-color:#fecaca;color:var(--bad)}
+.alert{padding:10px 14px;border-radius:10px;margin-bottom:12px;border:1px solid}.alert.ok{background:#f0fdf4;border-color:#bbf7d0;color:var(--ok)}.alert.err{background:#fef2f2;border-color:#fecaca;color:var(--bad)}
 .empty{padding:32px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed #cbd5e1;border-radius:var(--r)}
 .toast{position:fixed;top:16px;right:16px;left:16px;max-width:420px;margin-left:auto;padding:12px 16px;border-radius:12px;color:#fff;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.2);animation:in .2s}
 .toast.ok{background:#166534}.toast.err{background:#991b1b}@keyframes in{from{opacity:0;transform:translateY(-8px)}}

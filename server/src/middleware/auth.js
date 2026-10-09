@@ -15,6 +15,7 @@ export const auth = (roles = [], { allowTemp = false } = {}) => wrap(async (req,
   catch { throw new HttpError(401, 'Your session has expired. Please log in again'); }
   const user = await User.findById(payload.id);
   if (!user || !user.isActive) throw new HttpError(401, 'Please log in to continue');
+  if (user.passwordChangedAt && payload.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)) throw new HttpError(401, 'Your session has expired. Please log in again');
   if (roles.length && !roles.includes(user.role)) throw new HttpError(403, 'You do not have access to this');
   if (user.mustChangePassword && !allowTemp) {
     const e = new HttpError(403, 'You must change your temporary password first'); e.code = 'MUST_CHANGE_PASSWORD'; throw e;
