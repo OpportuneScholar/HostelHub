@@ -20,6 +20,8 @@ export function Load({ st, what, empty, children }) {
 }
 
 export const fmt = (d) => (d ? new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '-');
+// Date-only values (joining date) are stored as midnight UTC, so format them in UTC to show the same day everywhere.
+export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' }) : '-');
 export const Badge = ({ s }) => <span className={'badge ' + String(s).toLowerCase().replace('_', '-')}>{String(s).replace('_', ' ')}</span>;
 // Toast: shows each new message for a few seconds.
 export function Msg({ m }) {
