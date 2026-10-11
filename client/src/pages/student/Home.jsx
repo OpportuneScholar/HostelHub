@@ -2,9 +2,14 @@ import { Link } from 'react-router-dom';
 import { Badge, Load, fmt, useLoad } from '../../ui';
 
 export default function Home() {
-  const st = useLoad('/student/dashboard'); const fees = useLoad('/student/fees'); const passes = useLoad('/student/passes'); const leave = useLoad('/student/leave');
-  const d = st.data; const now = new Date();
-  const due = (fees.data?.items || []).filter((f) => f.status !== 'PAID'); const overdue = due.filter((f) => f.status === 'OVERDUE').length;
+  const st = useLoad('/student/dashboard');
+  const fees = useLoad('/student/fees');
+  const passes = useLoad('/student/passes');
+  const leave = useLoad('/student/leave');
+  const d = st.data;
+  const now = new Date();
+  const due = (fees.data?.items || []).filter((f) => f.status !== 'PAID');
+  const overdue = due.filter((f) => f.status === 'OVERDUE').length;
   const pass = passes.data?.items.find((p) => p.status === 'ACTIVE' && p.state !== 'IN' && new Date(p.validTo) >= now);
   const last = leave.data?.items[0];
   return (

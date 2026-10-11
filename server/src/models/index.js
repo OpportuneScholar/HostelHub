@@ -10,8 +10,8 @@ export const User = model('User', new Schema({
   passwordHash: { type: String, required: true, select: false },
   role: { type: String, enum: ['WARDEN', 'STUDENT', 'GUARD'], required: true },
   mustChangePassword: { type: Boolean, default: false },
-  isActive: { type: Boolean, default: true },
-  passwordChangedAt: Date, // sessions issued before this are rejected (set on password resets)
+  isActive: { type: Boolean, default: true }, lastLoginAt: Date,
+  passwordChangedAt: Date,
 }, { timestamps: true }));
 
 export const StudentProfile = model('StudentProfile', new Schema({
@@ -27,7 +27,10 @@ export const StudentProfile = model('StudentProfile', new Schema({
   joiningDate: { type: Date, default: Date.now },
 }, { timestamps: true }));
 
-export const Hostel = model('Hostel', new Schema({ name: str({ required: true, unique: true }) }));
+export const Hostel = model('Hostel', new Schema({
+  name: str({ required: true, unique: true }), type: { type: String, enum: ['BOYS', 'GIRLS', 'MIXED'], default: 'MIXED' },
+  description: str(), archived: { type: Boolean, default: false },
+}));
 export const Block = model('Block', new Schema({
   hostel: ref('Hostel', { required: true }), name: str({ required: true }),
 }).index({ hostel: 1, name: 1 }, { unique: true }));
@@ -35,15 +38,15 @@ export const Room = model('Room', new Schema({
   block: ref('Block', { required: true }), floor: { type: Number, default: 0 },
   number: str({ required: true, uppercase: true }),
   capacity: { type: Number, required: true, min: 1, max: 10 },
-}).index({ block: 1, number: 1 }, { unique: true })); // a room number only has to be unique inside its block
+}).index({ block: 1, number: 1 }, { unique: true }));
 
-// student is null when free. The partial unique index means one student can hold only one bed.
+// One bed per student: the unique index only applies while a student is assigned.
 export const Bed = model('Bed', new Schema({
   room: ref('Room', { required: true, index: true }),
   label: str({ required: true, uppercase: true }),
   student: ref('User', { default: null }), maintenance: { type: Boolean, default: false },
 }).index({ student: 1 }, { unique: true, partialFilterExpression: { student: { $type: 'objectId' } } })
-  .index({ room: 1, label: 1 }, { unique: true })); // bed labels repeat across blocks (101-1), so they are unique per room
+  .index({ room: 1, label: 1 }, { unique: true }));
 
 export const AuditLog = model('AuditLog', new Schema({
   actor: ref('User', { required: true }), action: str({ required: true, index: true }),
@@ -60,14 +63,24 @@ export const LeaveRequest = model('LeaveRequest', new Schema({
   decidedBy: ref('User'), decidedAt: Date, remark: str(),
 }, { timestamps: true }));
 
-// passId is random and is the only thing the QR code carries.
 export const GatePass = model('GatePass', new Schema({
-  passId: str({ required: true, unique: true }), leave: ref('LeaveRequest', { required: true }),
-  student: ref('User', { required: true, index: true }), type: oneOf(['LEAVE', 'OUTING']),
+  passId: str({ required: true, unique: true }),
+  code: str(),
+  codeActive: { type: Boolean, default: false },
+  source: oneOf(['AUTO', 'LEAVE', 'OVERRIDE'], 'LEAVE'),
+  leave: ref('LeaveRequest'), student: ref('User', { required: true, index: true }), type: oneOf(['LEAVE', 'OUTING']),
+  destination: str(), reason: str(), issuedBy: ref('User'),
   validFrom: { type: Date, required: true }, validTo: { type: Date, required: true },
   status: oneOf(['ACTIVE', 'CANCELLED'], 'ACTIVE'),
-  state: oneOf(['NONE', 'OUT', 'IN'], 'NONE'), // gate movement so far
-}, { timestamps: true }));
+  state: oneOf(['NONE', 'OUT', 'IN'], 'NONE'),
+  autoOpen: { type: Boolean, default: false },
+  outAt: Date, inAt: Date,
+  snapshot: { name: String, rollNumber: String, course: String, branch: String, year: Number, semester: Number,
+    hostelId: String, hostel: String, block: String, floor: Number, room: String, bed: String },
+}, { timestamps: true })
+  .index({ code: 1 }, { unique: true, partialFilterExpression: { codeActive: true }, name: 'code_active_unique' })
+  .index({ student: 1 }, { unique: true, partialFilterExpression: { autoOpen: true }, name: 'student_open_auto_unique' })
+  .index({ 'snapshot.hostelId': 1 }));
 
 export const GateEntry = model('GateEntry', new Schema({
   student: ref('User', { required: true, index: true }), pass: ref('GatePass', { required: true }),
@@ -97,7 +110,7 @@ export const Notice = model('Notice', new Schema({
   createdBy: ref('User'),
 }));
 
-// One active reset code per user. Only a keyed hash of the code is stored. MongoDB removes expired rows itself.
+// One active reset code per user, stored as a keyed hash. MongoDB removes expired rows.
 export const PasswordReset = model('PasswordReset', new Schema({
   user: ref('User', { required: true, unique: true }),
   otpHash: { type: String, required: true },
@@ -105,3 +118,12 @@ export const PasswordReset = model('PasswordReset', new Schema({
   createdAt: { type: Date, default: Date.now },
   expiresAt: { type: Date, required: true },
 }).index({ expiresAt: 1 }, { expireAfterSeconds: 0 }));
+
+export const OutingSettings = model('OutingSettings', new Schema({
+  key: str({ required: true, unique: true }), timezone: str({ default: 'Asia/Kolkata' }),
+  closure: { active: Boolean, until: String, message: String },
+  weekly: [{ _id: false, dow: Number, open: Boolean, start: String, lastIssue: String, returnBy: String }],
+  specialDates: [{ _id: false, id: String, date: String, endDate: String, label: String, closed: Boolean, start: String, lastIssue: String, returnBy: String }],
+  rules: { maxDaysAhead: Number, minDurationMinutes: Number, maxPassesPerDay: Number, blockOverdueFees: Boolean },
+  updatedBy: ref('User'),
+}, { timestamps: true }));

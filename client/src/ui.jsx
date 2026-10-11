@@ -11,7 +11,6 @@ export function useLoad(path) {
   return { ...st, reload: load };
 }
 
-// Shows loading / error / empty text, otherwise the children.
 export function Load({ st, what, empty, children }) {
   if (st.loading) return <div className="skel-list" aria-label={`Loading ${what}`}><div className="skel" /><div className="skel" /><div className="skel" /></div>;
   if (st.error) return <div className="alert err">Unable to load {what}. Please try again. <button className="link" onClick={st.reload}>Retry</button></div>;
@@ -20,13 +19,21 @@ export function Load({ st, what, empty, children }) {
 }
 
 export const fmt = (d) => (d ? new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '-');
-// Date-only values (joining date) are stored as midnight UTC, so format them in UTC to show the same day everywhere.
+// Joining dates are stored as midnight UTC, so format them in UTC.
 export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' }) : '-');
+export const fmtTz = (d, tz) => (d ? new Date(d).toLocaleString('en-GB', { timeZone: tz || undefined, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) : '-');
+const GATE = { NOT_EXITED: ['Not exited', 'pending'], OUT: ['OUT', 'out'], RETURNED: ['Returned', 'returned'], EXPIRED: ['Expired', 'expired'], CANCELLED: ['Cancelled', 'cancelled'] };
+export const gateLabel = (p) => (p.gateState === 'OUT' && p.overdue ? 'OUT (overdue)' : (GATE[p.gateState] || [p.gateState])[0]);
+export const StateBadge = ({ p }) => <span className={'badge ' + (p.gateState === 'OUT' && p.overdue ? 'expired' : (GATE[p.gateState] || [0, ''])[1])}>{gateLabel(p)}</span>;
 export const Badge = ({ s }) => <span className={'badge ' + String(s).toLowerCase().replace('_', '-')}>{String(s).replace('_', ' ')}</span>;
-// Toast: shows each new message for a few seconds.
 export function Msg({ m }) {
   const [shown, setShown] = useState(null);
-  useEffect(() => { if (!m) return; setShown(m); const t = setTimeout(() => setShown(null), 4500); return () => clearTimeout(t); }, [m]);
+  useEffect(() => {
+    if (!m) return;
+    setShown(m);
+    const t = setTimeout(() => setShown(null), 4500);
+    return () => clearTimeout(t);
+  }, [m]);
   return shown ? <div className={'toast ' + (shown.ok ? 'ok' : 'err')} role="status" onClick={() => setShown(null)}>{shown.text}</div> : null;
 }
 export const Field = ({ label, children }) => <label className="field"><span>{label}</span>{children}</label>;
@@ -47,12 +54,18 @@ export function Confirm({ title, text, label, danger, onConfirm, onCancel }) {
   );
 }
 
-// run(fn) calls the API function, shows its message or error, and returns true on success.
 export function useMsg() {
   const [msg, setMsg] = useState(null);
   const run = async (fn) => {
-    try { const r = await fn(); setMsg({ ok: true, text: r?.message || 'Done' }); return true; }
-    catch (e) { setMsg({ ok: false, text: e.message }); return false; }
+    try {
+      const r = await fn();
+      setMsg({ ok: true, text: r?.message || 'Done' });
+      return true;
+    }
+    catch (e) {
+      setMsg({ ok: false, text: e.message });
+      return false;
+    }
   };
   return [msg, run, setMsg];
 }

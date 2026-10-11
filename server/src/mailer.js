@@ -2,7 +2,7 @@ import { emailConfig } from './config.js';
 
 export const emailEnabled = () => emailConfig.provider !== 'none';
 
-// Never log the message body in production: it contains the reset code.
+// The message body contains the reset code, so it is never logged.
 export async function sendMail({ to, subject, text, html }) {
   const { provider, from, smtp } = emailConfig;
   if (provider === 'resend') {

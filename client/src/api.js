@@ -1,4 +1,4 @@
-// Dev: talks to the local server. Production: VITE_API_URL (absolute URL), or '/api' when the host proxies /api to the backend.
+// Development uses the local server; production uses VITE_API_URL, or /api when the host proxies it.
 const RAW = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
 const BASE = RAW.replace(/\/+$/, '');
 
@@ -15,10 +15,12 @@ export async function api(path, { method = 'GET', body } = {}) {
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    // Session ended (expired, or account deactivated): send the user back to login. Login/me handle their own errors.
     if (res.status === 401 && path !== '/auth/login' && path !== '/auth/me') window.dispatchEvent(new Event('hostelhub:unauthorized'));
     if (data.code === 'MUST_CHANGE_PASSWORD') window.dispatchEvent(new Event('hostelhub:mustchange'));
-    const e = new Error(data.message || 'Something went wrong'); e.status = res.status; e.code = data.code; throw e;
+    const e = new Error(data.message || 'Something went wrong');
+    e.status = res.status;
+    e.code = data.code;
+    throw e;
   }
   return data;
 }

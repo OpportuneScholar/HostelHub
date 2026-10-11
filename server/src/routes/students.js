@@ -11,8 +11,7 @@ const PROFILE_FIELDS = ['firstName', 'lastName', 'rollNumber', 'email', 'enrollm
   'guardianName', 'guardianPhone', 'emergencyContact', 'address'];
 const REQUIRED = [...PROFILE_FIELDS.filter((k) => k !== 'enrollmentNumber'), 'bedId'];
 
-// Finds the chosen bed and checks the whole chain the form selected (hostel > block > floor > room > bed).
-// The browser's dropdown filtering is only a convenience; this is the check that counts.
+// Re-checks the whole hostel > block > floor > room > bed chain; the dropdown filtering is only a convenience.
 const loadFreeBed = async ({ hostelId, blockId, floor, roomId, bedId } = {}) => {
   if (!bedId) throw new HttpError(400, 'Select a hostel, block, floor, room and bed');
   const bed = await Bed.findById(bedId);
@@ -26,7 +25,7 @@ const loadFreeBed = async ({ hostelId, blockId, floor, roomId, bedId } = {}) => 
   if (bed.maintenance) throw new HttpError(409, 'That bed is under maintenance');
   return { bed, room };
 };
-// Atomic: only succeeds if nobody else holds the bed, so two students can never share one.
+// Atomic claim: two students can never get the same bed.
 const claimBed = async (bedId, userId) => {
   const bed = await Bed.findOneAndUpdate({ _id: bedId, student: null, maintenance: { $ne: true } }, { student: userId });
   if (!bed) throw new HttpError(409, 'That bed is occupied or under maintenance');
@@ -48,7 +47,7 @@ router.post('/', wrap(async (req, res) => {
     await claimBed(bed._id, user._id);
     const fields = Object.fromEntries(PROFILE_FIELDS.filter((k) => b[k] !== undefined).map((k) => [k, b[k]]));
     profile = await StudentProfile.create({ ...fields, joiningDate, user: user._id });
-  } catch (err) { // undo partial work
+  } catch (err) {
     await Bed.updateOne({ _id: bed._id, student: user._id }, { student: null });
     await User.deleteOne({ _id: user._id });
     throw err;
@@ -64,7 +63,10 @@ router.get('/', wrap(async (req, res) => {
   const filter = {};
   if (course) filter.course = String(course);
   if (year) filter.year = Number(year);
-  if (q) { const r = new RegExp(escapeRegex(q), 'i'); filter.$or = [{ firstName: r }, { lastName: r }, { rollNumber: r }, { email: r }]; }
+  if (q) {
+    const r = new RegExp(escapeRegex(q), 'i');
+    filter.$or = [{ firstName: r }, { lastName: r }, { rollNumber: r }, { email: r }];
+  }
   const [items, total] = await Promise.all([
     StudentProfile.find(filter).sort({ rollNumber: 1 }).skip((page - 1) * limit).limit(limit).populate('user', 'isActive'),
     StudentProfile.countDocuments(filter),
@@ -94,7 +96,6 @@ router.patch('/:id/active', wrap(async (req, res) => {
   res.json({ message: isActive ? 'Student reactivated' : 'Student deactivated' });
 }));
 
-// Password goes back to FirstName + room digits. It is never returned in the response.
 router.post('/:id/reset-password', wrap(async (req, res) => {
   const [profile, bed] = await Promise.all([
     StudentProfile.findOne({ user: req.params.id }),
@@ -112,9 +113,12 @@ router.post('/:id/change-room', wrap(async (req, res) => {
   const oldBed = await Bed.findOne({ student: req.params.id });
   if (oldBed && String(oldBed._id) === String(req.body?.bedId)) throw new HttpError(400, 'Student is already in that bed');
   const { bed: newBed } = await loadFreeBed(req.body);
-  if (oldBed) await Bed.updateOne({ _id: oldBed._id }, { student: null }); // one student, one bed: free the old one first
+  if (oldBed) await Bed.updateOne({ _id: oldBed._id }, { student: null });
   try { await claimBed(newBed._id, req.params.id); }
-  catch (err) { if (oldBed) await Bed.updateOne({ _id: oldBed._id, student: null }, { student: req.params.id }); throw err; }
+  catch (err) {
+    if (oldBed) await Bed.updateOne({ _id: oldBed._id, student: null }, { student: req.params.id });
+    throw err;
+  }
   audit(req.user._id, 'ROOM_CHANGED', req.params.id, { from: oldBed?.label, to: newBed.label });
   res.json({ message: 'Room changed successfully' });
 }));

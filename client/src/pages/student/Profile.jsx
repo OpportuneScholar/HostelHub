@@ -3,7 +3,9 @@ import { api } from '../../api';
 import { Field, Load, Msg, fmtDate, useLoad, useMsg } from '../../ui';
 
 export default function Profile() {
-  const st = useLoad('/student/profile'); const [msg, run] = useMsg(); const [edit, setEdit] = useState(null);
+  const st = useLoad('/student/profile');
+  const [msg, run] = useMsg();
+  const [edit, setEdit] = useState(null);
   const p = st.data?.profile, bed = st.data?.bed;
   const save = async (e) => { e.preventDefault(); if (await run(() => api('/student/profile', { method: 'PATCH', body: edit }))) { setEdit(null); st.reload(); } };
   const row = (k, v) => <><dt>{k}</dt><dd>{v || '-'}</dd></>;

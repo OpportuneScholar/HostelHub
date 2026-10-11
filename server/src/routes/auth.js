@@ -9,12 +9,12 @@ import { cookieOpts } from '../config.js';
 import { sendMail, emailEnabled } from '../mailer.js';
 import { OTP_TTL_MS, RESEND_COOLDOWN_MS, MAX_ATTEMPTS, newOtp, hmac, safeEqual } from '../resetCrypto.js';
 
-const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12); // keeps login timing the same for unknown users
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12); // equalises timing for unknown users
 
 const router = Router();
 const safe = (u) => ({ id: u._id, name: u.name, email: u.email, role: u.role, rollNumber: u.rollNumber, mustChangePassword: u.mustChangePassword });
 
-// 10 failed attempts per account per IP per 15 minutes. Keyed by account so that users behind a shared proxy IP do not lock each other out.
+// Keyed by account as well as IP so users behind one proxy do not lock each other out.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, max: 10, skipSuccessfulRequests: true, standardHeaders: true, legacyHeaders: false,
   keyGenerator: (req) => `${req.ip}|${String(req.body?.identifier || '').trim().toLowerCase()}`,
@@ -30,8 +30,9 @@ router.post('/login', loginLimiter, wrap(async (req, res) => {
   const hashOk = await bcrypt.compare(password, user ? user.passwordHash : DUMMY_HASH);
   if (!user || !hashOk) throw new HttpError(401, 'Invalid email/roll number or password');
   if (!user.isActive) throw new HttpError(403, 'This account has been deactivated. Contact the warden.');
-  // The password was correct, so naming the portal problem reveals nothing to a stranger.
+  // The password was correct, so naming the portal reveals nothing.
   if (portal && user.role !== portal) throw new HttpError(403, 'This account does not belong to the selected portal. Go back and choose the correct one.');
+  User.updateOne({ _id: user._id }, { lastLoginAt: new Date() }).catch(() => {});
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '8h' });
   res.cookie('token', token, cookieOpts).json({ user: safe(user) });
 }));
@@ -56,7 +57,6 @@ router.post('/change-password', auth([], { allowTemp: true }), wrap(async (req, 
   res.json({ message: 'Password changed successfully', user: safe(user) });
 }));
 
-// ---- Forgot password: request code -> verify code -> set new password ----
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const perAccount = (windowMs, max, message) => rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false, message: { message },
   keyGenerator: (req) => `${req.ip}|${String(req.body?.identifier || '').trim().toLowerCase()}` });
@@ -72,15 +72,16 @@ const findForReset = async (identifier, portal) => {
   if (!user || !user.isActive || (portal && user.role !== portal)) return null;
   return user;
 };
-// Counts one attempt, then checks the code. Locks the code after MAX_ATTEMPTS wrong tries.
 const checkCode = async (user, otp) => {
   const rec = await PasswordReset.findOneAndUpdate({ user: user._id, expiresAt: { $gt: new Date() }, attempts: { $lt: MAX_ATTEMPTS } }, { $inc: { attempts: 1 } }, { new: true });
   return rec && safeEqual(rec.otpHash, hmac(process.env.JWT_SECRET, `${user._id}:${otp}`)) ? rec : null;
 };
-const cleanOtp = (otp) => { if (typeof otp !== 'string' || !/^\d{6}$/.test(otp.trim())) throw new HttpError(400, 'Enter the 6-digit code'); return otp.trim(); };
+const cleanOtp = (otp) => {
+  if (typeof otp !== 'string' || !/^\d{6}$/.test(otp.trim())) throw new HttpError(400, 'Enter the 6-digit code');
+  return otp.trim();
+};
 
-// Always answers the same way, whether or not the account exists. The work happens after the reply
-// so that response time does not reveal anything either.
+// Reply first, work afterwards: response time must not reveal whether the account exists.
 router.post('/forgot-password', forgotIpLimiter, forgotLimiter, wrap(async (req, res) => {
   const { identifier, portal } = req.body || {};
   if (typeof identifier !== 'string' || !identifier.trim()) throw new HttpError(400, 'Enter your email or roll number');
@@ -91,7 +92,8 @@ router.post('/forgot-password', forgotIpLimiter, forgotLimiter, wrap(async (req,
     if (!user) return;
     const last = await PasswordReset.findOne({ user: user._id }).select('createdAt');
     if (last && Date.now() - last.createdAt.getTime() < RESEND_COOLDOWN_MS) return;
-    const otp = newOtp(); const now = Date.now();
+    const otp = newOtp();
+    const now = Date.now();
     await PasswordReset.findOneAndUpdate({ user: user._id },
       { otpHash: hmac(process.env.JWT_SECRET, `${user._id}:${otp}`), attempts: 0, createdAt: new Date(now), expiresAt: new Date(now + OTP_TTL_MS) }, { upsert: true });
     await sendMail({ to: user.email, subject: 'Your HostelHub password reset code',
@@ -116,12 +118,12 @@ router.post('/reset-password', codeLimiter, wrap(async (req, res) => {
   if (newPassword.length < 8) throw new HttpError(400, 'Password must be at least 8 characters');
   const user = await findForReset(identifier, portal);
   const rec = user && await checkCode(user, otp);
-  // Deleting the code is what makes it single-use, even if two requests arrive together.
+  // Deleting the code makes it single-use, even for simultaneous requests.
   if (!rec || !(await PasswordReset.findOneAndDelete({ _id: rec._id }))) throw new HttpError(400, BAD_CODE);
   const u = await User.findById(user._id).select('+passwordHash');
   u.passwordHash = await bcrypt.hash(newPassword, 12);
   u.mustChangePassword = false;
-  u.passwordChangedAt = new Date(); // signs out every older session
+  u.passwordChangedAt = new Date();
   await u.save();
   audit(u._id, 'PASSWORD_RESET_SELF', u._id);
   res.json({ message: 'Password updated. You can now log in.' });

@@ -8,28 +8,42 @@ const FIELDS = [['firstName', 'First name'], ['lastName', 'Last name'], ['rollNu
   ['guardianName', 'Guardian name'], ['guardianPhone', 'Guardian phone'], ['emergencyContact', 'Emergency contact'], ['address', 'Address']];
 const EDITABLE = [['phone', 'Phone'], ['course', 'Course'], ['branch', 'Branch'], ['year', 'Year', 'number'], ['semester', 'Semester', 'number'], ['guardianName', 'Guardian name'],
   ['guardianPhone', 'Guardian phone'], ['emergencyContact', 'Emergency contact'], ['address', 'Address'], ['enrollmentNumber', 'Enrollment number']];
-const todayStr = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in the user's own timezone
+const todayStr = () => new Date().toLocaleDateString('en-CA');
 const maxDateStr = () => new Date(Date.now() + 365 * 864e5).toLocaleDateString('en-CA');
 const blank = () => ({ ...Object.fromEntries(FIELDS.map(([k]) => [k, ''])), joiningDate: todayStr(), sel: { ...EMPTY_PICK } });
 const place = (sel) => ({ hostelId: sel.hostel, blockId: sel.block, floor: Number(sel.floor), roomId: sel.room, bedId: sel.bed });
 
 export default function Students() {
-  const [page, setPage] = useState(1); const [q, setQ] = useState(''); const [course, setCourse] = useState(''); const [year, setYear] = useState('');
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState('');
+  const [course, setCourse] = useState('');
+  const [year, setYear] = useState('');
   const [applied, setApplied] = useState({ q: '', course: '', year: '' });
   const st = useLoad(`/students?page=${page}&q=${encodeURIComponent(applied.q)}&course=${encodeURIComponent(applied.course)}&year=${applied.year}`);
-  const [msg, run] = useMsg(); const [form, setForm] = useState(null); const [formErr, setFormErr] = useState(''); const [refresh, setRefresh] = useState(0);
-  const [confirm, setConfirm] = useState(null); const [room, setRoom] = useState(null); const [view, setView] = useState(null); const [edit, setEdit] = useState(null);
+  const [msg, run] = useMsg();
+  const [form, setForm] = useState(null);
+  const [formErr, setFormErr] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  const [confirm, setConfirm] = useState(null);
+  const [room, setRoom] = useState(null);
+  const [view, setView] = useState(null);
+  const [edit, setEdit] = useState(null);
 
   const submit = async (e) => {
-    e.preventDefault(); setFormErr('');
+    e.preventDefault();
+    setFormErr('');
     const { sel, ...fields } = form;
     if (!sel.bed) return setFormErr('Select the hostel, block, floor, room and bed first.');
     if (!fields.joiningDate) return setFormErr('Choose a joining date.');
-    if (await run(() => api('/students', { method: 'POST', body: { ...fields, ...place(sel) } }))) { setForm(null); st.reload(); }
-    setRefresh((k) => k + 1); // a bed may have been taken meanwhile: reload the options
+    if (await run(() => api('/students', { method: 'POST', body: { ...fields, ...place(sel) } }))) {
+      setForm(null);
+      st.reload();
+    }
+    setRefresh((k) => k + 1);
   };
   const act = async () => {
-    const { type, s } = confirm; setConfirm(null);
+    const { type, s } = confirm;
+    setConfirm(null);
     const call = type === 'reset' ? () => api(`/students/${s.user._id}/reset-password`, { method: 'POST' }) : () => api(`/students/${s.user._id}/active`, { method: 'PATCH', body: { isActive: type === 'reactivate' } });
     if (await run(call)) st.reload();
   };
@@ -37,9 +51,19 @@ export default function Students() {
     e.preventDefault();
     if (!room.sel.bed) return run(async () => { throw new Error('Select the hostel, block, floor, room and bed first.'); });
     const ok = await run(() => api(`/students/${room.s.user._id}/change-room`, { method: 'POST', body: place(room.sel) }));
-    if (ok) { setRoom(null); st.reload(); } else setRefresh((k) => k + 1);
+    if (ok) {
+      setRoom(null);
+      st.reload();
+    } else setRefresh((k) => k + 1);
   };
-  const saveEdit = async (e) => { e.preventDefault(); const { s, ...body } = edit; if (await run(() => api(`/students/${s.user._id}/profile`, { method: 'PATCH', body }))) { setEdit(null); st.reload(); } };
+  const saveEdit = async (e) => {
+    e.preventDefault();
+    const { s, ...body } = edit;
+    if (await run(() => api(`/students/${s.user._id}/profile`, { method: 'PATCH', body }))) {
+      setEdit(null);
+      st.reload();
+    }
+  };
   const items = st.data?.items;
 
   return (

@@ -1,7 +1,8 @@
 import { Load, useLoad } from '../../ui';
 
 export default function MyRoom() {
-  const st = useLoad('/student/profile'); const bed = st.data?.bed;
+  const st = useLoad('/student/profile');
+  const bed = st.data?.bed;
   return (
     <>
       <h1>My Room</h1>

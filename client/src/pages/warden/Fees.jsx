@@ -3,8 +3,11 @@ import { api } from '../../api';
 import { Badge, Field, Load, Modal, Msg, Table, fmt, useLoad, useMsg } from '../../ui';
 
 export default function Fees() {
-  const st = useLoad('/admin/fees?limit=50'); const [msg, run] = useMsg(); const [paying, setPaying] = useState(null);
-  const [f, setF] = useState({ rollNumber: '', type: '', amount: '', dueDate: '' }); const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const st = useLoad('/admin/fees?limit=50');
+  const [msg, run] = useMsg();
+  const [paying, setPaying] = useState(null);
+  const [f, setF] = useState({ rollNumber: '', type: '', amount: '', dueDate: '' });
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const add = async (e) => { e.preventDefault(); if (await run(() => api('/admin/fees', { method: 'POST', body: { ...f, amount: +f.amount } }))) { setF({ ...f, type: '', amount: '' }); st.reload(); } };
   const pay = async (e) => { e.preventDefault(); if (await run(() => api(`/admin/fees/${paying.id}/paid`, { method: 'PATCH', body: { reference: paying.reference } }))) { setPaying(null); st.reload(); } };
   return (

@@ -5,7 +5,8 @@ import { Badge, Field, Load, Msg, Table, fmt, useLoad, useMsg } from '../../ui';
 const CATS = ['Room', 'Electricity', 'Water', 'Cleaning', 'Food', 'Internet', 'Maintenance', 'Security', 'Other'];
 
 export default function Complaints() {
-  const st = useLoad('/student/complaints'); const [msg, run] = useMsg();
+  const st = useLoad('/student/complaints');
+  const [msg, run] = useMsg();
   const [f, setF] = useState({ category: 'Room', subject: '', description: '', priority: 'MEDIUM' });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const submit = async (e) => { e.preventDefault(); if (await run(() => api('/student/complaints', { method: 'POST', body: f }))) { setF({ ...f, subject: '', description: '' }); st.reload(); } };

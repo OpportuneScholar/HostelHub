@@ -1,9 +1,10 @@
 import { Load, useLoad } from '../../ui';
 
 export default function Dashboard() {
-  const st = useLoad('/admin/dashboard'); const d = st.data;
+  const st = useLoad('/admin/dashboard');
+  const d = st.data;
   const cards = d && [['🎓', 'Total students', d.students], ['🏢', 'Total rooms', d.totalRooms], ['🔴', 'Occupied beds', d.occupiedBeds], ['🟢', 'Available beds', d.availableBeds],
-    ['📝', 'Pending leaves', d.pendingLeave], ['🛠️', 'Pending complaints', d.openComplaints], ['🚪', "Today's gate entries", d.todayOut + d.todayIn], ['💳', 'Pending fees', d.pendingFees]];
+    ['📝', 'Pending leaves', d.pendingLeave], ['🛠️', 'Pending complaints', d.openComplaints], ['🚪', "Today's gate entries", d.todayOut + d.todayIn], ['🚶', 'Currently out', d.outNow], ['💳', 'Pending fees', d.pendingFees]];
   return (
     <>
       <h1>Dashboard</h1>

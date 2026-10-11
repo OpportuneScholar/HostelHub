@@ -5,15 +5,32 @@ import { Badge, Confirm, Field, Load, Msg, Table, fmt, useLoad, useMsg } from '.
 const BLANK = { title: '', description: '', category: 'General', priority: 'NORMAL', expiresAt: '' };
 
 export default function Notices() {
-  const st = useLoad('/admin/notices'); const [msg, run] = useMsg(); const [del, setDel] = useState(null);
-  const [f, setF] = useState(BLANK); const [editId, setEditId] = useState(null); const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const st = useLoad('/admin/notices');
+  const [msg, run] = useMsg();
+  const [del, setDel] = useState(null);
+  const [f, setF] = useState(BLANK);
+  const [editId, setEditId] = useState(null);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const save = async (e) => {
-    e.preventDefault(); const body = { ...f, expiresAt: new Date(f.expiresAt + 'T23:59:59').toISOString() };
+    e.preventDefault();
+    const body = { ...f, expiresAt: new Date(f.expiresAt + 'T23:59:59').toISOString() };
     const call = editId ? () => api(`/admin/notices/${editId}`, { method: 'PATCH', body }) : () => api('/admin/notices', { method: 'POST', body });
-    if (await run(call)) { setF(BLANK); setEditId(null); st.reload(); }
+    if (await run(call)) {
+      setF(BLANK);
+      setEditId(null);
+      st.reload();
+    }
   };
-  const startEdit = (n) => { setEditId(n._id); setF({ title: n.title, description: n.description, category: n.category, priority: n.priority, expiresAt: new Date(n.expiresAt).toLocaleDateString('en-CA') }); window.scrollTo(0, 0); };
-  const remove = async () => { const id = del; setDel(null); if (await run(() => api(`/admin/notices/${id}`, { method: 'DELETE' }))) st.reload(); };
+  const startEdit = (n) => {
+    setEditId(n._id);
+    setF({ title: n.title, description: n.description, category: n.category, priority: n.priority, expiresAt: new Date(n.expiresAt).toLocaleDateString('en-CA') });
+    window.scrollTo(0, 0);
+  };
+  const remove = async () => {
+    const id = del;
+    setDel(null);
+    if (await run(() => api(`/admin/notices/${id}`, { method: 'DELETE' }))) st.reload();
+  };
   const now = new Date();
   return (
     <>

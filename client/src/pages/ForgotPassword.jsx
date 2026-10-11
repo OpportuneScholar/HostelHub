@@ -2,24 +2,36 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { Field } from '../ui';
 
-// Three steps: ask for a code, check the code, choose a new password. The code is kept only in this component's state.
 export default function ForgotPassword({ portal, initialId, onBack, onDone }) {
   const [step, setStep] = useState('request');
-  const [id, setId] = useState(initialId || ''); const [otp, setOtp] = useState('');
-  const [pw, setPw] = useState(''); const [pw2, setPw2] = useState(''); const [show, setShow] = useState(false);
-  const [err, setErr] = useState(''); const [info, setInfo] = useState(''); const [busy, setBusy] = useState(false); const [wait, setWait] = useState(0);
+  const [id, setId] = useState(initialId || '');
+  const [otp, setOtp] = useState('');
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState('');
+  const [info, setInfo] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [wait, setWait] = useState(0);
   useEffect(() => { if (wait <= 0) return; const t = setTimeout(() => setWait(wait - 1), 1000); return () => clearTimeout(t); }, [wait]);
 
-  const run = async (fn) => { setErr(''); setBusy(true); try { await fn(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const run = async (fn) => {
+    setErr('');
+    setBusy(true);
+    try { await fn(); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
   const request = (e) => { e?.preventDefault(); return run(async () => {
     if (!id.trim()) throw new Error('Enter your email or roll number');
     const d = await api('/auth/forgot-password', { method: 'POST', body: { identifier: id.trim(), portal } });
-    setInfo(d.message); setStep('verify'); setWait(60);
+    setInfo(d.message);
+    setStep('verify');
+    setWait(60);
   }); };
   const verify = (e) => { e.preventDefault(); return run(async () => {
     if (!/^\d{6}$/.test(otp)) throw new Error('Enter the 6-digit code');
     await api('/auth/verify-reset-otp', { method: 'POST', body: { identifier: id.trim(), portal, otp } });
-    setInfo(''); setStep('reset');
+    setInfo('');
+    setStep('reset');
   }); };
   const reset = (e) => { e.preventDefault(); return run(async () => {
     if (pw.length < 8) throw new Error('Password must be at least 8 characters');
@@ -27,7 +39,11 @@ export default function ForgotPassword({ portal, initialId, onBack, onDone }) {
     await api('/auth/reset-password', { method: 'POST', body: { identifier: id.trim(), portal, otp, newPassword: pw, confirmPassword: pw2 } });
     onDone(id.trim());
   }); };
-  const back = () => { setErr(''); if (step === 'request') onBack(); else setStep(step === 'verify' ? 'request' : 'verify'); };
+  const back = () => {
+    setErr('');
+    if (step === 'request') onBack();
+    else setStep(step === 'verify' ? 'request' : 'verify');
+  };
   const noFix = { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false };
 
   return (
