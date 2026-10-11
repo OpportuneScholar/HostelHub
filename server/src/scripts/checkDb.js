@@ -14,5 +14,7 @@ try {
   console.log('Latest gate entries (UTC timestamps):');
   last.forEach((g) => console.log(' ', g.at.toISOString(), g.action, g.student?.rollNumber, 'guard:', g.guard?.name, g.gate));
   console.log('Bed indexes:', (await M.Bed.collection.indexes()).map((i) => i.name).join(', '));
-} catch (e) { console.error('DB check failed:', e.message); process.exitCode = 1; }
+} catch (e) { console.error('DB check failed:', e.message);
+process.exitCode = 1;
+}
 finally { await mongoose.disconnect(); }

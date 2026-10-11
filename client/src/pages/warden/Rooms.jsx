@@ -16,19 +16,34 @@ function RoomFields({ f, set }) {
 }
 
 export default function Rooms() {
-  const sum = useLoad('/hostels/summary'); const st = useLoad('/hostels/rooms'); const [msg, run] = useMsg();
-  const [f, setF] = useState(BLANK); const [edit, setEdit] = useState(null); const [del, setDel] = useState(null);
-  const refresh = () => { st.reload(); sum.reload(); };
+  const sum = useLoad('/hostels/summary');
+  const st = useLoad('/hostels/rooms');
+  const [msg, run] = useMsg();
+  const [f, setF] = useState(BLANK);
+  const [edit, setEdit] = useState(null);
+  const [del, setDel] = useState(null);
+  const refresh = () => {
+    st.reload();
+    sum.reload();
+  };
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const setE = (k) => (e) => setEdit({ ...edit, [k]: e.target.value });
 
   const add = async (e) => { e.preventDefault(); if (await run(() => api('/hostels/rooms', { method: 'POST', body: body(f) }))) { setF({ ...f, number: '' }); refresh(); } };
   const startEdit = (r) => setEdit({ id: r._id, occupied: r.occupied, hostelName: r.block.hostel.name, blockName: r.block.name, floor: String(r.floor), number: r.number, capacity: String(r.capacity) });
   const save = async (e) => {
-    e.preventDefault(); const { id, occupied, ...rest } = edit;
-    if (await run(() => api(`/hostels/rooms/${id}`, { method: 'PATCH', body: body(rest) }))) { setEdit(null); refresh(); }
+    e.preventDefault();
+    const { id, occupied, ...rest } = edit;
+    if (await run(() => api(`/hostels/rooms/${id}`, { method: 'PATCH', body: body(rest) }))) {
+      setEdit(null);
+      refresh();
+    }
   };
-  const remove = async () => { const id = del.id; setDel(null); if (await run(() => api(`/hostels/rooms/${id}`, { method: 'DELETE' }))) refresh(); };
+  const remove = async () => {
+    const id = del.id;
+    setDel(null);
+    if (await run(() => api(`/hostels/rooms/${id}`, { method: 'DELETE' }))) refresh();
+  };
   const s = sum.data;
   return (
     <>

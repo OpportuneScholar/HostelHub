@@ -3,7 +3,8 @@ import { Badge, Load, Table, fmt, useLoad } from '../../ui';
 const sum = (list) => list.reduce((t, f) => t + f.amount, 0);
 
 export default function Fees() {
-  const st = useLoad('/student/fees'); const items = st.data?.items || [];
+  const st = useLoad('/student/fees');
+  const items = st.data?.items || [];
   const paid = items.filter((f) => f.status === 'PAID'), pending = items.filter((f) => f.status !== 'PAID');
   return (
     <>

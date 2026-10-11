@@ -11,7 +11,8 @@
     "create-warden": "node src/scripts/createUser.js WARDEN",
     "create-user": "node src/scripts/createUser.js",
     "check-db": "node src/scripts/checkDb.js",
-    "migrate-indexes": "node src/scripts/migrateIndexes.js"
+    "migrate-indexes": "node src/scripts/migrateIndexes.js",
+    "test": "node --import ./testlib/register.mjs --test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

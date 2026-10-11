@@ -10,17 +10,35 @@ const PORTALS = [['STUDENT', '🎓', 'Student', 'Room, leave, gate pass, complai
   ['WARDEN', '🛡️', 'Warden / Admin', 'Manage students, rooms, requests and notices'], ['GUARD', '🚪', 'Guard', 'Verify gate passes and record IN / OUT']];
 
 export default function Login() {
-  const { login } = useAuth(); const nav = useNavigate();
-  const [portal, setPortal] = useState(null); const [forgot, setForgot] = useState(false);
-  const [id, setId] = useState(''); const [pw, setPw] = useState(''); const [show, setShow] = useState(false);
-  const [err, setErr] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
+  const { login } = useAuth();
+  const nav = useNavigate();
+  const [portal, setPortal] = useState(null);
+  const [forgot, setForgot] = useState(false);
+  const [id, setId] = useState('');
+  const [pw, setPw] = useState('');
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
   const submit = async (e) => {
-    e.preventDefault(); setErr(''); setNotice(''); setBusy(true);
-    try { const u = await login(id.trim(), pw, portal); nav(u.mustChangePassword ? '/change-password' : home[u.role]); }
+    e.preventDefault();
+    setErr('');
+    setNotice('');
+    setBusy(true);
+    try {
+      const u = await login(id.trim(), pw, portal);
+      nav(u.mustChangePassword ? '/change-password' : home[u.role]);
+    }
     catch (e2) { setErr(e2.message); } finally { setBusy(false); }
   };
-  const back = () => { setPortal(null); setForgot(false); setErr(''); setNotice(''); setPw(''); };
-  const noFix = { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }; // stops phone keyboards from changing what is typed
+  const back = () => {
+    setPortal(null);
+    setForgot(false);
+    setErr('');
+    setNotice('');
+    setPw('');
+  };
+  const noFix = { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false };
   const p = PORTALS.find((x) => x[0] === portal);
   return (
     <div className="auth"><div className="glass">

@@ -2,7 +2,6 @@ import { HttpError } from './utils.js';
 
 const toNumber = (v) => (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '') ? Number(v) : NaN);
 
-// Validates and cleans the room form (used by both "add room" and "edit room").
 export function parseRoom(body = {}) {
   const hostelName = String(body.hostelName ?? '').trim();
   const blockName = String(body.blockName ?? '').trim();
@@ -17,7 +16,6 @@ export function parseRoom(body = {}) {
   return { hostelName, blockName, number, floor, capacity };
 }
 
-// Beds are labelled "<room>-<n>". Works out which beds to keep, remove (highest numbers first) and add.
 export function planBeds(beds, capacity) {
   const items = beds.map((b) => ({ _id: b._id, label: b.label, student: b.student || null, idx: Number(b.label.slice(b.label.lastIndexOf('-') + 1)) })).sort((a, b) => a.idx - b.idx);
   const have = new Set(items.map((b) => b.idx));

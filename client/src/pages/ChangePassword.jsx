@@ -7,17 +7,24 @@ import { Field } from '../ui';
 const home = { WARDEN: '/warden', STUDENT: '/student', GUARD: '/guard' };
 
 export default function ChangePassword() {
-  const { user, setUser, logout } = useAuth(); const nav = useNavigate();
+  const { user, setUser, logout } = useAuth();
+  const nav = useNavigate();
   const [f, setF] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
   if (user === undefined) return <p className="muted pad">Loading...</p>;
   if (!user) return <Navigate to="/login" replace />;
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const submit = async (e) => {
-    e.preventDefault(); setErr('');
+    e.preventDefault();
+    setErr('');
     if (f.newPassword !== f.confirmPassword) return setErr('New passwords do not match');
     setBusy(true);
-    try { const d = await api('/auth/change-password', { method: 'POST', body: f }); setUser(d.user); nav(home[d.user.role]); }
+    try {
+      const d = await api('/auth/change-password', { method: 'POST', body: f });
+      setUser(d.user);
+      nav(home[d.user.role]);
+    }
     catch (e2) { setErr(e2.message); } finally { setBusy(false); }
   };
   return (
